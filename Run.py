@@ -22,8 +22,6 @@ for pre,fill,node in RenderTree(feb):
     treestr = u"%s%s" %(pre,node.name)
     print(treestr.ljust(8),node.name,node.read)
 
-xplt_obj = xpltObj(filename,file_size,nstates,feb)
-
 '''
 Construct Tree and get key info
     nNodes - number of nodes
@@ -57,13 +55,16 @@ Stress_XZ = np.zeros((nstates,nElems))
 Disp_X    = np.zeros((nstates,nNodes))
 Disp_Y    = np.zeros((nstates,nNodes))
 Disp_Z    = np.zeros((nstates,nNodes))
-        
+Disp_FEB  = np.zeros((nstates,nNodes,3))      
 for i in range(nstates): 
     for j in range(nNodes):
         Disp_X[i,j]  = displacement[i][j*3+1]
         Disp_Y[i,j]  = displacement[i][j*3+2]
         Disp_Z[i,j]  = displacement[i][j*3+3]
-        
+    Disp_FEB[i,:,0]  = Disp_X[i,:]  
+    Disp_FEB[i,:,1]  = Disp_Y[i,:]  
+    Disp_FEB[i,:,2]  = Disp_Z[i,:]
+    
 for i in range(nstates): 
     for j in range(nElems):
         Stress_X[i,j]  = stress[i][j*6+1]
@@ -85,9 +86,8 @@ for j in range(nstates):
     reader.Update()
     polydata = reader.GetOutput()
     
-    # Add Vector Data on Points
+    # Add Cell Data on Points
     CellData = [Stress_X[j], Stress_Y[j], Stress_Z[j], Stress_XY[j], Stress_YZ[j], Stress_XZ[j]]
-    
     CellNames = ['Stress_X','Stress_Y','Stress_Z','Stress_XY','Stress_YZ','Stress_XZ']
     
     for i in range(len(CellNames)) :
@@ -121,20 +121,31 @@ for j in range(nstates):
     # Add Point Data
     PointData = [Stress_X_Pt,Stress_Y_Pt,Stress_Z_Pt,Stress_XY_Pt,Stress_YZ_Pt,Stress_XZ_Pt,Disp_X[j],Disp_Y[j],Disp_Z[j]]
     PointNames = ['Stress_X_Pt','Stress_Y_Pt','Stress_Z_Pt','Stress_XY_Pt','Stress_YZ_Pt','Stress_XZ_Pt','Disp_X','Disp_Y','Disp_Z']
+    
     for i in range(len(PointNames)) :
         arrayPoint = vtk.util.numpy_support.numpy_to_vtk(PointData[i], deep=True)
         arrayPoint.SetName(PointNames[i])
         dataPoints = polydata.GetPointData()
         dataPoints.AddArray(arrayPoint)
         dataPoints.Modified()
-                
+    
+    # Add Vector Data on Points
+    VectorData = [Disp_FEB[j]]
+    VectorNames = ['Disp_FEB']
+    
+    for i in range(len(VectorNames)) :
+        arrayVector = vtk.util.numpy_support.numpy_to_vtk(VectorData[i], deep=True)
+        arrayVector.SetName(VectorNames[i])
+        dataVector = polydata.GetPointData()
+        dataVector.AddArray(arrayVector)
+        dataVector.Modified()
+        
     fname = './NewFiles/test_' +str(j)+'.vtk'
     directory = os.path.dirname(fname)
     if not os.path.exists(directory):
         os.makedirs(directory)
     
     writer = vtk.vtkDataSetWriter()
-    
     writer.SetFileName(fname)
     writer.SetInputData(polydata)
     print('Writing ',fname)
